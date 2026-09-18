@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Solitaire 3D — Premium Edition</title>
+<style>
+:root{
+  --bg:#0a0a1a; --panel:rgba(0,0,0,0.5); --panel-border:rgba(255,255,255,0.1);
+  --text:#ffffff; --accent:#ffd700;
+}
+:root:not([data-theme="light"]){ color-scheme: dark; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0a0a1a; --text:#ffffff; } }
+:root[data-theme="dark"]{ --bg:#0a0a1a; --text:#ffffff; }
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; touch-action: none; }
+#game-container { position: fixed; inset: 0; }
+canvas { display: block; }
+
+#ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+#ui > * { pointer-events: auto; }
+
+#hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: max(12px, env(safe-area-inset-top)) 16px 12px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.6), transparent);
+}
+.hud-group { display: flex; gap: 12px; align-items: center; }
+.hud-stat {
+  background: var(--panel); backdrop-filter: blur(20px);
+  border: 1px solid var(--panel-border);
+  padding: 8px 16px; border-radius: 12px;
+  color: var(--text); text-align: center; min-width: 70px;
+}
+.hud-value { font-size: 20px; font-weight: 700; color: var(--accent); }
+.hud-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+
+.icon-btn {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--panel); backdrop-filter: blur(20px);
+  border: 1px solid var(--panel-border);
+  color: var(--text); font-size: 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
+.icon-btn:active { transform: scale(0.95); }
+
+#controls {
+  position: absolute; bottom: max(16px, env(safe-area-inset-bottom)); left: 0; right: 0;
+  display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
+  padding: 0 16px;
+}
+.ctrl-btn {
+  padding: 12px 20px; border-radius: 14px; border: none;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(20px);
+  color: var(--text); font-weight: 600; font-size: 13px;
+  border: 1px solid rgba(255,255,255,0.15);
+  cursor: pointer; transition: all 0.2s;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.ctrl-btn:hover { background: rgba(255,255,255,0.15); }
+.ctrl-btn:active { transform: scale(0.95); }
+.ctrl-btn.primary { background: linear-gradient(135deg, #667eea, #764ba2); border: none; }
+
+.modal {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal.active { display: flex; }
+.modal-box {
+  background: rgba(20,20,40,0.95); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 24px; padding: 28px; max-width: 420px; width: 100%;
+  max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+}
+.modal-title { font-size: 24px; font-weight: 800; color: var(--text); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+.close-x { background: none; border: none; color: rgba(255,255,255,0.5); font-size: 28px; cursor: pointer; }
+
+.setting-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text); }
+.toggle { width: 52px; height: 30px; background: rgba(255,255,255,0.1); border-radius: 15px; position: relative; cursor: pointer; transition: background 0.3s; }
+.toggle.on { background: #4a9eff; }
+.toggle::after { content: ''; position: absolute; width: 24px; height: 24px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: transform 0.3s; }
+.toggle.on::after { transform: translateX(22px); }
+
+.section-label { margin-top:20px; color:var(--text); font-size:12px; text-transform:uppercase; letter-spacing:1px; opacity:0.7; margin-bottom:10px; }
+.theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0; }
+.theme-card { aspect-ratio: 1; border-radius: 12px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
+.theme-card.active { border-color: #4a9eff; transform: scale(1.05); }
+
+#ai-prompt {
+  width: 100%; padding: 14px; border-radius: 12px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text); font-size: 14px; margin-bottom: 8px; resize: vertical;
+  min-height: 70px; font-family: inherit;
+}
+#ai-prompt:focus { outline: none; border-color: #4a9eff; }
+.ai-note { font-size: 11px; opacity: 0.55; margin: 0 0 12px; color: var(--text); }
+.ai-btn {
+  width: 100%; padding: 14px; border-radius: 12px; border: none;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white; font-weight: 700; cursor: pointer; margin-bottom: 16px;
+}
+.ai-btn:disabled { opacity: 0.6; cursor: default; }
+
+.score-entry {
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(255,255,255,0.05); padding: 14px; border-radius: 12px;
+  margin-bottom: 8px; color: var(--text);
+}
+.score-rank { font-weight: 800; color: var(--accent); font-size: 18px; }
+
+#win-screen {
+  position: fixed; inset: 0; z-index: 200;
+  background: radial-gradient(circle, rgba(255,215,0,0.2), rgba(0,0,0,0.9));
+  display: none; align-items: center; justify-content: center; flex-direction: column;
+  gap: 24px;
+}
+#win-screen.active { display: flex; }
+.win-title {
+  font-size: clamp(48px, 10vw, 80px); font-weight: 900;
+  background: linear-gradient(135deg, #ffd700, #ff6b6b, #ffd700);
+  background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: shine 2s linear infinite;
+}
+@keyframes shine { to { background-position: 200% center; } }
+.win-score { font-size: 32px; color: white; font-weight: 700; }
+
+#loading {
+  position: fixed; inset: 0; z-index: 500;
+  background: var(--bg); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 20px;
+  transition: opacity 0.5s;
+}
+#loading.hide { opacity: 0; pointer-events: none; }
+.loader { width: 60px; height: 60px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #ffd700; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.load-text { color: white; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; }
+
+#toast {
+  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: rgba(0,0,0,0.85); color: white; padding: 12px 24px;
+  border-radius: 24px; font-weight: 600; opacity: 0; transition: all 0.3s;
+  z-index: 300; pointer-events: none; border: 1px solid rgba(255,255,255,0.1);
+  max-width: 88vw; text-align: center;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 480px) {
+  .hud-stat { min-width: 60px; padding: 6px 10px; }
+  .hud-value { font-size: 16px; }
+  .ctrl-btn { padding: 10px 14px; font-size: 11px; }
+}
+</style>
+</head>
+<body>
+<div id="loading">
+  <div class="loader"></div>
+  <div class="load-text">Loading 3D Solitaire...</div>
+</div>
+
+<div id="game-container"></div>
+
+<div id="ui">
+  <div id="hud">
+    <div class="hud-group">
+      <div class="hud-stat"><div class="hud-value" id="score">0</div><div class="hud-label">Score</div></div>
+      <div class="hud-stat"><div class="hud-value" id="moves">0</div><div class="hud-label">Moves</div></div>
+      <div class="hud-stat"><div class="hud-value" id="time">0:00</div><div class="hud-label">Time</div></div>
+    </div>
+    <div class="hud-group">
+      <button class="icon-btn" onclick="game.undo()" title="Undo">↩️</button>
+      <button class="icon-btn" onclick="game.hint()" title="Hint">💡</button>
+      <button class="icon-btn" onclick="ui.show('settings')" title="Settings">⚙️</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button class="ctrl-btn" onclick="game.newGame()">🎮 New Game</button>
+    <button class="ctrl-btn" onclick="game.autoComplete()">⚡ Auto</button>
+    <button class="ctrl-btn" onclick="game.restart()">🔄 Restart</button>
+    <button class="ctrl-btn primary" onclick="ui.show('scores')">🏆 Scores</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-settings">
+  <div class="modal-box">
+    <div class="modal-title">Settings <button class="close-x" onclick="ui.hide()">×</button></div>
+
+    <div class="setting-row"><span>🔊 Sound Effects</span><div class="toggle on" id="tgl-sound" onclick="ui.toggle('sound')"></div></div>
+    <div class="setting-row"><span>📊 Draw 3 Cards</span><div class="toggle" id="tgl-draw3" onclick="ui.toggle('draw3')"></div></div>
+
+    <div class="section-label">Table Theme</div>
+    <div class="theme-grid" id="table-theme-grid">
+      <div class="theme-card active" data-key="casino" style="background:linear-gradient(135deg,#0d4d2b,#1a6b3a)" onclick="ui.setTable('casino')" title="Casino Green"></div>
+      <div class="theme-card" data-key="ocean" style="background:linear-gradient(135deg,#1a237e,#283593)" onclick="ui.setTable('ocean')" title="Deep Ocean"></div>
+      <div class="theme-card" data-key="royal" style="background:linear-gradient(135deg,#4a148c,#6a1b9a)" onclick="ui.setTable('royal')" title="Royal Purple"></div>
+      <div class="theme-card" data-key="ruby" style="background:linear-gradient(135deg,#b71c1c,#d32f2f)" onclick="ui.setTable('ruby')" title="Ruby Red"></div>
+      <div class="theme-card" data-key="midnight" style="background:linear-gradient(135deg,#212121,#424242)" onclick="ui.setTable('midnight')" title="Midnight"></div>
+      <div class="theme-card" data-key="sunset" style="background:linear-gradient(135deg,#e65100,#f57c00)" onclick="ui.setTable('sunset')" title="Sunset"></div>
+    </div>
+
+    <div class="section-label">Card Back</div>
+    <div class="theme-grid" id="back-theme-grid">
+      <div class="theme-card active" data-key="blue" style="background:linear-gradient(135deg,#1e88e5,#0d47a1)" onclick="ui.setBack('blue')" title="Classic Blue"></div>
+      <div class="theme-card" data-key="pink" style="background:linear-gradient(135deg,#8e24aa,#d81b60)" onclick="ui.setBack('pink')" title="Pink Fusion"></div>
+      <div class="theme-card" data-key="checker" style="background:linear-gradient(135deg,#333333,#111111)" onclick="ui.setBack('checker')" title="Charcoal"></div>
+      <div class="theme-card" data-key="emerald" style="background:linear-gradient(135deg,#00c853,#64dd17)" onclick="ui.setBack('emerald')" title="Emerald"></div>
+      <div class="theme-card" data-key="gold" style="background:linear-gradient(135deg,#ffd700,#b8860b)" onclick="ui.setBack('gold')" title="Gold"></div>
+      <div class="theme-card" data-key="cyan" style="background:linear-gradient(135deg,#00acc1,#1de9b6)" onclick="ui.setBack('cyan')" title="Cyan Wave"></div>
+    </div>
+
+    <div class="section-label" id="ai-theme-label">🎨 Theme Generator</div>
+    <textarea id="ai-prompt" placeholder="Describe any theme... 'neon cyberpunk', 'golden sunset', 'arctic frost', 'volcanic fire'"></textarea>
+    <p class="ai-note" id="ai-note">Mixes a custom table + card-back palette from your description.</p>
+    <button class="ai-btn" id="ai-generate-btn" onclick="ui.generateTheme()">🎨 Generate Theme</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-scores">
+  <div class="modal-box">
+    <div class="modal-title">🏆 High Scores <button class="close-x" onclick="ui.hide()">×</button></div>
+    <div id="scores-list"></div>
+    <button class="ctrl-btn" style="width:100%; margin-top:16px;" onclick="ui.clearScores()">Clear All Scores</button>
+  </div>
+</div>
+
+<div id="win-screen">
+  <div class="win-title">YOU WIN!</div>
+  <div class="win-score">Score: <span id="final-score">0</span></div>
+  <button class="ctrl-btn primary" style="padding:16px 32px; font-size:16px;" onclick="ui.hideWin(); game.newGame()">Play Again</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// FAILURE VISIBILITY — if anything below throws (a blocked/slow CDN
+// fetch of Three.js, an unsupported API, etc.) the person sees a clear
+// message and a reload button instead of a spinner that hangs forever.
+// ============================================================
+window.__solitaireBootOK = false;
+function showBootError(msg) {
+  window.__solitaireBootOK = true; // stop the watchdog below from piling on
+  const el = document.getElementById('loading');
+  if (!el) return;
+  el.classList.remove('hide');
+  el.innerHTML =
+    '<div style="color:#ff9d9d;font-size:14px;max-width:280px;text-align:center;line-height:1.6;padding:0 20px;">' +
+    "Couldn't load the game." +
+    (msg ? '<br><span style="opacity:0.65;font-size:12px;">' + String(msg).replace(/</g, '&lt;') + '</span>' : '') +
+    '</div>' +
+    '<button onclick="location.reload()" style="margin-top:18px;padding:10px 22px;border-radius:10px;border:none;background:#4a9eff;color:#fff;font-weight:600;cursor:pointer;">Reload</button>';
+}
+setTimeout(() => {
+  if (!window.__solitaireBootOK) {
+    showBootError('This is taking longer than expected — your connection may be blocking a required script.');
+  }
+}, 7000);
+
+// Load Three.js ourselves and wait for its ACTUAL load event before running
+// anything that touches it — a plain <script src> tag's "runs before the
+// next tag" guarantee isn't reliable inside every sandboxed page host, and
+// that mismatch (not a bad URL) is what produced "THREE is not defined".
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Could not fetch ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+// Two independent CDNs, tried in order — if one host is unreachable from
+// this specific page's network context, the other still gets a chance
+// before the person sees any error at all.
+const THREE_SOURCES = [
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
+];
+
+async function loadThree() {
+  let lastErr;
+  for (const src of THREE_SOURCES) {
+    try {
+      await loadScript(src);
+      if (typeof THREE !== 'undefined') return;
+      lastErr = new Error('Loaded ' + src + ' but THREE is still undefined');
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error('Could not load Three.js from any source');
+}
+
+loadThree()
+  .then(() => mainInit())
+  .catch(err => {
+    console.error('Solitaire setup failed:', err);
+    showBootError(err && err.message ? err.message : String(err));
+  });
+
+function mainInit() {
+try {
+
+// ============================================================
+// KLONDIKE SOLITAIRE — AUTHORITATIVE GAME ENGINE
+// (Pure state + rules. No DOM, no Three.js, no rendering here.
+//  Unit-tested in isolation before being wired to the renderer below.)
+// ============================================================
+const Engine = (function () {
+  const SUIT_SPADES = 0, SUIT_HEARTS = 1, SUIT_DIAMONDS = 2, SUIT_CLUBS = 3;
+  function isRed(suit) { return suit === SUIT_HEARTS || suit === SUIT_DIAMONDS; }
+
+  function buildDeck() {
+    const deck = [];
+    for (let s = 0; s < 4; s++) for (let v = 0; v < 13; v++) deck.push({ id: `${s}-${v}`, suit: s, value: v });
+    return deck;
+  }
+
+  function shuffle(deck, rng) {
+    rng = rng || Math.random;
+    const arr = deck.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function createInitialState(shuffledDeck, drawCount) {
+    const state = {
+      tableau: [[], [], [], [], [], [], []],
+      foundations: [[], [], [], []],
+      stock: [], waste: [], faceUp: {}, cardsById: {},
+      score: 0, moves: 0, drawCount: drawCount === 3 ? 3 : 1,
+    };
+    shuffledDeck.forEach(c => {
+      state.cardsById[c.id] = { suit: c.suit, value: c.value };
+      state.faceUp[c.id] = false;
+    });
+    let idx = 0;
+    // Standard Klondike deal: column c gets (c+1) cards, only the LAST one face up.
+    for (let col = 0; col < 7; col++) {
+      for (let row = 0; row <= col; row++) {
+        const card = shuffledDeck[idx++];
+        state.tableau[col].push(card.id);
+        state.faceUp[card.id] = (row === col);
+      }
+    }
+    for (; idx < shuffledDeck.length; idx++) state.stock.push(shuffledDeck[idx].id);
+    return state;
+  }
+
+  function cardValue(state, id) { return state.cardsById[id].value; }
+  function cardSuit(state, id) { return state.cardsById[id].suit; }
+  function cardIsRed(state, id) { return isRed(state.cardsById[id].suit); }
+
+  function locate(state, cardId) {
+    for (let i = 0; i < 7; i++) {
+      const idx = state.tableau[i].indexOf(cardId);
+      if (idx !== -1) return { location: 'tableau', pile: i, index: idx, size: state.tableau[i].length };
+    }
+    for (let i = 0; i < 4; i++) {
+      const idx = state.foundations[i].indexOf(cardId);
+      if (idx !== -1) return { location: 'foundation', pile: i, index: idx, size: state.foundations[i].length };
+    }
+    let idx = state.waste.indexOf(cardId);
+    if (idx !== -1) return { location: 'waste', pile: 0, index: idx, size: state.waste.length };
+    idx = state.stock.indexOf(cardId);
+    if (idx !== -1) return { location: 'stock', pile: 0, index: idx, size: state.stock.length };
+    return null;
+  }
+
+  function getMovableSequence(state, cardId) {
+    const loc = locate(state, cardId);
+    if (!loc) return null;
+    if (loc.location === 'waste' || loc.location === 'foundation') {
+      return loc.index === loc.size - 1 ? [cardId] : null;
+    }
+    if (loc.location === 'stock') return null;
+    if (!state.faceUp[cardId]) return null;
+    const pile = state.tableau[loc.pile];
+    const seq = pile.slice(loc.index);
+    for (let i = 0; i < seq.length; i++) {
+      if (!state.faceUp[seq[i]]) return null;
+      if (i > 0) {
+        const prev = seq[i - 1], cur = seq[i];
+        if (cardValue(state, prev) !== cardValue(state, cur) + 1) return null;
+        if (cardIsRed(state, prev) === cardIsRed(state, cur)) return null;
+      }
+    }
+    return seq;
+  }
+
+  function canPlaceOnFoundation(state, cardId, fIdx) {
+    const pile = state.foundations[fIdx];
+    if (pile.length === 0) return cardValue(state, cardId) === 0;
+    const top = pile[pile.length - 1];
+    return cardSuit(state, cardId) === cardSuit(state, top) && cardValue(state, cardId) === cardValue(state, top) + 1;
+  }
+
+  function findFoundationFor(state, cardId) {
+    for (let i = 0; i < 4; i++) {
+      if (state.foundations[i].length > 0 && cardSuit(state, state.foundations[i][0]) === cardSuit(state, cardId)) {
+        return canPlaceOnFoundation(state, cardId, i) ? i : -1;
+      }
+    }
+    if (cardValue(state, cardId) === 0) return state.foundations.findIndex(f => f.length === 0);
+    return -1;
+  }
+
+  function canPlaceOnTableau(state, cardId, tIdx) {
+    const pile = state.tableau[tIdx];
+    if (pile.length === 0) return cardValue(state, cardId) === 12;
+    const top = pile[pile.length - 1];
+    if (!state.faceUp[top]) return false;
+    return cardIsRed(state, cardId) !== cardIsRed(state, top) && cardValue(state, cardId) === cardValue(state, top) - 1;
+  }
+
+  function removeSequenceFromSource(state, loc, count) {
+    if (loc.location === 'tableau') return state.tableau[loc.pile].splice(loc.index, count);
+    if (loc.location === 'waste') return state.waste.splice(loc.index, count);
+    if (loc.location === 'foundation') return state.foundations[loc.pile].splice(loc.index, count);
+    return [];
+  }
+
+  function revealTopIfNeeded(state, pileIndex) {
+    const pile = state.tableau[pileIndex];
+    if (pile.length === 0) return null;
+    const top = pile[pile.length - 1];
+    if (!state.faceUp[top]) { state.faceUp[top] = true; return top; }
+    return null;
+  }
+
+  function moveToFoundation(state, cardId) {
+    const loc = locate(state, cardId);
+    if (!loc) return { ok: false, reason: 'not-found' };
+    if (loc.location === 'foundation' || loc.location === 'stock') return { ok: false, reason: 'illegal-source' };
+    if (loc.index !== loc.size - 1) return { ok: false, reason: 'not-top' };
+    if (loc.location === 'tableau' && !state.faceUp[cardId]) return { ok: false, reason: 'face-down' };
+    const fIdx = findFoundationFor(state, cardId);
+    if (fIdx === -1 || fIdx === undefined) return { ok: false, reason: 'no-foundation' };
+    removeSequenceFromSource(state, loc, 1);
+    state.foundations[fIdx].push(cardId);
+    let revealed = null;
+    if (loc.location === 'tableau') {
+      revealed = revealTopIfNeeded(state, loc.pile);
+      state.score += 10 + (revealed ? 5 : 0);
+    } else if (loc.location === 'waste') {
+      state.score += 10;
+    }
+    state.moves++;
+    return { ok: true, from: loc, to: { location: 'foundation', pile: fIdx }, revealed };
+  }
+
+  function moveToTableau(state, cardId, destPile) {
+    const seq = getMovableSequence(state, cardId);
+    if (!seq) return { ok: false, reason: 'invalid-sequence' };
+    const loc = locate(state, cardId);
+    if (loc.location === 'tableau' && loc.pile === destPile) return { ok: false, reason: 'same-pile' };
+    if (!canPlaceOnTableau(state, cardId, destPile)) return { ok: false, reason: 'illegal-destination' };
+    removeSequenceFromSource(state, loc, seq.length);
+    state.tableau[destPile].push(...seq);
+    let revealed = null;
+    if (loc.location === 'tableau') {
+      revealed = revealTopIfNeeded(state, loc.pile);
+      if (revealed) state.score += 5;
+    } else if (loc.location === 'waste') {
+      state.score += 5;
+    } else if (loc.location === 'foundation') {
+      state.score = Math.max(0, state.score - 15);
+    }
+    state.moves++;
+    return { ok: true, from: loc, to: { location: 'tableau', pile: destPile }, revealed, count: seq.length };
+  }
+
+  function drawStock(state) {
+    if (state.stock.length === 0) {
+      if (state.waste.length === 0) return { ok: false, reason: 'empty' };
+      const recycled = state.waste.slice().reverse();
+      state.stock = recycled;
+      state.waste = [];
+      recycled.forEach(id => { state.faceUp[id] = false; });
+      state.moves++;
+      return { ok: true, recycled: true };
+    }
+    const count = Math.min(state.drawCount, state.stock.length);
+    const drawn = [];
+    for (let i = 0; i < count; i++) {
+      const id = state.stock.pop();
+      state.faceUp[id] = true;
+      state.waste.push(id);
+      drawn.push(id);
+    }
+    state.moves++;
+    return { ok: true, drawn };
+  }
+
+  function isWon(state) { return state.foundations.every(f => f.length === 13); }
+
+  function findHint(state) {
+    if (state.waste.length) {
+      const c = state.waste[state.waste.length - 1];
+      if (findFoundationFor(state, c) !== -1) return { type: 'foundation', card: c, from: 'waste' };
+    }
+    for (let i = 0; i < 7; i++) {
+      const pile = state.tableau[i];
+      if (pile.length && state.faceUp[pile[pile.length - 1]]) {
+        const c = pile[pile.length - 1];
+        if (findFoundationFor(state, c) !== -1) return { type: 'foundation', card: c, from: 'tableau', pile: i };
+      }
+    }
+    if (state.waste.length) {
+      const c = state.waste[state.waste.length - 1];
+      for (let t = 0; t < 7; t++) {
+        if (canPlaceOnTableau(state, c, t)) return { type: 'tableau', card: c, from: 'waste', toPile: t };
+      }
+    }
+    let fallback = null;
+    for (let i = 0; i < 7; i++) {
+      const pile = state.tableau[i];
+      if (!pile.length) continue;
+      const top = pile[pile.length - 1];
+      if (!state.faceUp[top]) continue;
+      const seq = getMovableSequence(state, top);
+      if (!seq) continue;
+      for (let t = 0; t < 7; t++) {
+        if (t === i) continue;
+        if (canPlaceOnTableau(state, top, t)) {
+          const revealsSomething = pile.length > 1 && !state.faceUp[pile[pile.length - 2]];
+          const hint = { type: 'tableau', card: top, from: 'tableau', fromPile: i, toPile: t };
+          if (revealsSomething) return hint;
+          if (!fallback) fallback = hint;
+        }
+      }
+    }
+    if (fallback) return fallback;
+    if (state.stock.length) return { type: 'draw' };
+    if (state.waste.length) return { type: 'recycle' };
+    return { type: 'none' };
+  }
+
+  function cloneMutable(state) {
+    return {
+      tableau: state.tableau.map(p => p.slice()),
+      foundations: state.foundations.map(p => p.slice()),
+      stock: state.stock.slice(),
+      waste: state.waste.slice(),
+      faceUp: Object.assign({}, state.faceUp),
+      score: state.score, moves: state.moves,
+    };
+  }
+
+  function applyMutable(state, snap) {
+    state.tableau = snap.tableau.map(p => p.slice());
+    state.foundations = snap.foundations.map(p => p.slice());
+    state.stock = snap.stock.slice();
+    state.waste = snap.waste.slice();
+    state.faceUp = Object.assign({}, snap.faceUp);
+    state.score = snap.score; state.moves = snap.moves;
+  }
+
+  function createController() {
+    const ctl = {
+      state: null, history: [], initialSnapshot: null,
+      newGame(drawCount) {
+        const deck = shuffle(buildDeck());
+        const dc = drawCount != null ? drawCount : (ctl.state ? ctl.state.drawCount : 1);
+        ctl.state = createInitialState(deck, dc);
+        ctl.initialSnapshot = cloneMutable(ctl.state);
+        ctl.history = [];
+      },
+      restart() {
+        if (!ctl.initialSnapshot) return false;
+        applyMutable(ctl.state, ctl.initialSnapshot);
+        ctl.history = [];
+        return true;
+      },
+      setDrawCount(n) { ctl.state.drawCount = (n === 3) ? 3 : 1; },
+      _snapshot() { ctl.history.push(cloneMutable(ctl.state)); if (ctl.history.length > 200) ctl.history.shift(); },
+      undo() {
+        if (ctl.history.length === 0) return { ok: false };
+        applyMutable(ctl.state, ctl.history.pop());
+        return { ok: true };
+      },
+      draw() { ctl._snapshot(); const r = drawStock(ctl.state); if (!r.ok) ctl.history.pop(); return r; },
+      toFoundation(cardId) { ctl._snapshot(); const r = moveToFoundation(ctl.state, cardId); if (!r.ok) ctl.history.pop(); return r; },
+      toTableau(cardId, destPile) { ctl._snapshot(); const r = moveToTableau(ctl.state, cardId, destPile); if (!r.ok) ctl.history.pop(); return r; },
+      isWon() { return isWon(ctl.state); },
+      findHint() { return findHint(ctl.state); },
+      autoFinish() {
+        ctl._snapshot();
+        let movedAny = false, guard = 0, moved = true;
+        while (moved && guard++ < 300) {
+          moved = false;
+          if (ctl.state.waste.length) {
+            const c = ctl.state.waste[ctl.state.waste.length - 1];
+            if (moveToFoundation(ctl.state, c).ok) { moved = true; movedAny = true; continue; }
+          }
+          for (let i = 0; i < 7; i++) {
+            const pile = ctl.state.tableau[i];
+            if (pile.length && ctl.state.faceUp[pile[pile.length - 1]]) {
+              const c = pile[pile.length - 1];
+              if (moveToFoundation(ctl.state, c).ok) { moved = true; movedAny = true; break; }
+            }
+          }
+        }
+        if (!movedAny) ctl.history.pop();
+        return { ok: movedAny };
+      },
+    };
+    return ctl;
+  }
+
+  return {
+    isRed, buildDeck, shuffle, createInitialState, locate, getMovableSequence,
+    canPlaceOnFoundation, findFoundationFor, canPlaceOnTableau,
+    moveToFoundation, moveToTableau, drawStock, isWon, findHint,
+    cloneMutable, applyMutable, createController,
+  };
+})();
+
+// ============================================================
+// AUDIO
+// ============================================================
+const AudioSys = {
+  ctx: null, enabled: true,
+  init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+  play(type) {
+    if (!this.enabled) return;
+    this.init();
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    const configs = {
+      flip: [400, 600, 0.1], place: [300, 200, 0.1],
+      foundation: [523, 784, 0.15], error: [200, 150, 0.15],
+      win: [523, 1047, 0.4], draw: [350, 500, 0.08]
+    };
+    const [f1, f2, dur] = configs[type] || configs.flip;
+    osc.frequency.setValueAtTime(f1, t);
+    osc.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+    osc.start(t); osc.stop(t + dur);
+    if (type === 'win') {
+      [523, 659, 784, 1047].forEach((f, i) => {
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.connect(g); g.connect(this.ctx.destination);
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0.2, t + i * 0.12);
+        g.gain.exponentialRampToValueAtTime(0.01, t + i * 0.12 + 0.3);
+        o.start(t + i * 0.12); o.stop(t + i * 0.12 + 0.3);
+      });
+    }
+  }
+};
+
+// ============================================================
+// THREE.JS SCENE
+// ============================================================
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0a0a1a, 20, 40);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+const CAMERA_BASE = { y: 12, z: 14, fov: 45 }; // the original, landscape-tuned framing
+const CAMERA_BASE_DIST = Math.hypot(CAMERA_BASE.y, CAMERA_BASE.z);
+const TABLE_HALF_WIDTH = 8.5; // covers stock (-6) to the last foundation (7.2) with margin
+
+// A perspective camera's horizontal field of view shrinks as the viewport
+// gets narrower (portrait phones especially) even though its vertical FOV
+// stays fixed — that's what cut off the foundations/stock in portrait.
+// Pulling the camera back (never in past the original landscape distance)
+// keeps the same fixed vertical FOV — no fisheye distortion — while still
+// bringing the table's full width back into view.
+function updateCameraForViewport() {
+  const aspect = innerWidth / innerHeight;
+  camera.aspect = aspect;
+  camera.fov = CAMERA_BASE.fov;
+
+  const halfV = THREE.MathUtils.degToRad(CAMERA_BASE.fov / 2);
+  const halfH = Math.atan(Math.tan(halfV) * aspect);
+  const neededDist = TABLE_HALF_WIDTH / Math.tan(halfH);
+  const dist = Math.max(CAMERA_BASE_DIST, neededDist);
+  const scale = dist / CAMERA_BASE_DIST;
+
+  camera.position.set(0, CAMERA_BASE.y * scale, CAMERA_BASE.z * scale);
+  camera.lookAt(0, 0, 0);
+  camera.updateProjectionMatrix();
+}
+updateCameraForViewport();
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById('game-container').appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
+keyLight.position.set(5, 15, 8);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.left = -15; keyLight.shadow.camera.right = 15;
+keyLight.shadow.camera.top = 15; keyLight.shadow.camera.bottom = -15;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0x4a9eff, 0.3);
+fillLight.position.set(-5, 10, -5);
+scene.add(fillLight);
+
+const rimLight = new THREE.PointLight(0xffd700, 0.5, 30);
+rimLight.position.set(0, 8, -5);
+scene.add(rimLight);
+
+const tableGeo = new THREE.BoxGeometry(16, 0.5, 12);
+const tableMat = new THREE.MeshStandardMaterial({ color: 0x0d4d2b, roughness: 0.8, metalness: 0.1 });
+const table = new THREE.Mesh(tableGeo, tableMat);
+table.position.y = -0.25;
+table.receiveShadow = true;
+scene.add(table);
+
+const borderGeo = new THREE.BoxGeometry(16.5, 0.6, 12.5);
+const borderMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.6 });
+const border = new THREE.Mesh(borderGeo, borderMat);
+border.position.y = -0.35;
+scene.add(border);
+
+const feltGrid = new THREE.GridHelper(16, 32, 0x1a6b3a, 0x1a6b3a);
+feltGrid.position.y = 0.01;
+feltGrid.material.opacity = 0.1;
+feltGrid.material.transparent = true;
+scene.add(feltGrid);
+
+// ---- Textures ----
+// Manual rounded-rect path instead of ctx.roundRect(): arcTo() is supported
+// everywhere Canvas 2D is, so this removes a needless compatibility risk.
+function roundedRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function createCardFrontTexture(suit, value) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 358;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  roundedRectPath(ctx, 0, 0, 256, 358, 16);
+  ctx.fill();
+  const grad = ctx.createLinearGradient(0, 0, 256, 358);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.03)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 358);
+
+  const color = (suit === 1 || suit === 2) ? '#d32f2f' : '#212121';
+  ctx.fillStyle = color;
+  ctx.font = 'bold 48px Arial';
+  ctx.textAlign = 'center';
+
+  const suits = ['♠', '♥', '♦', '♣'];
+  const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  const sym = suits[suit], val = values[value];
+
+  ctx.textAlign = 'left';
+  ctx.fillText(val, 12, 50);
+  ctx.font = '36px Arial';
+  ctx.fillText(sym, 12, 90);
+
+  ctx.save();
+  ctx.translate(244, 308);
+  ctx.rotate(Math.PI);
+  ctx.font = 'bold 48px Arial';
+  ctx.fillText(val, 0, 0);
+  ctx.font = '36px Arial';
+  ctx.fillText(sym, 0, 40);
+  ctx.restore();
+
+  ctx.textAlign = 'center';
+  ctx.font = '120px Arial';
+  ctx.globalAlpha = 0.15;
+  ctx.fillText(sym, 128, 220);
+  ctx.globalAlpha = 1;
+
+  if (value >= 10) {
+    ctx.font = 'bold 32px Arial';
+    ctx.fillText(['J', 'Q', 'K'][value - 10], 128, 120);
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+function createCardBackTextureFromColors(c1, c2) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 358;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 256, 358);
+  grad.addColorStop(0, c1);
+  grad.addColorStop(1, c2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 358);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(8, 8, 240, 342);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(16, 16, 224, 326);
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.font = '64px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('❖', 128, 179);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+const PRESET_TABLES = {
+  casino: ['#0d4d2b', '#1a6b3a'], ocean: ['#1a237e', '#283593'], royal: ['#4a148c', '#6a1b9a'],
+  ruby: ['#b71c1c', '#d32f2f'], midnight: ['#212121', '#424242'], sunset: ['#e65100', '#f57c00'],
+};
+const PRESET_BACKS = {
+  blue: ['#1e88e5', '#0d47a1'], pink: ['#8e24aa', '#d81b60'], checker: ['#333333', '#111111'],
+  emerald: ['#00c853', '#64dd17'], gold: ['#ffd700', '#b8860b'], cyan: ['#00acc1', '#1de9b6'],
+};
+
+const cardTextures = {};
+const backTextures = {};
+let currentBack = 'blue';
+
+function precomputeTextures() {
+  for (let s = 0; s < 4; s++) for (let v = 0; v < 13; v++) cardTextures[`${s}-${v}`] = createCardFrontTexture(s, v);
+  Object.keys(PRESET_BACKS).forEach(name => {
+    backTextures[name] = createCardBackTextureFromColors(PRESET_BACKS[name][0], PRESET_BACKS[name][1]);
+  });
+}
+
+function setTableGradient(c1, c2) {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 64, 64);
+  grad.addColorStop(0, c1); grad.addColorStop(1, c2);
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tableMat.map = tex;
+  tableMat.color.set(0xffffff);
+  tableMat.needsUpdate = true;
+}
+
+function setCardBackColors(key, c1, c2) {
+  const tex = createCardBackTextureFromColors(c1, c2);
+  backTextures[key] = tex;
+  cards.forEach(mesh => {
+    const base = mesh.userData.baseMats;
+    base[2].map = tex;
+    base[2].needsUpdate = true;
+  });
+}
+
+// ---- Card mesh factory ----
+const CARD_W = 1.4, CARD_H = 2, CARD_D = 0.02;
+
+function createCardMesh(suit, value) {
+  const geo = new THREE.BoxGeometry(CARD_W, CARD_D, CARD_H);
+  const frontMat = new THREE.MeshStandardMaterial({ map: cardTextures[`${suit}-${value}`], roughness: 0.3, metalness: 0.05 });
+  const backMat = new THREE.MeshStandardMaterial({ map: backTextures[currentBack], roughness: 0.4 });
+  const sideMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+  const baseMats = [sideMat, sideMat, backMat, frontMat, sideMat, sideMat];
+  const mesh = new THREE.Mesh(geo, baseMats.slice());
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  // No rotation needed: BoxGeometry(1.4 wide, 0.02 thin, 2.0 long) already
+  // lies flat on the XZ table plane by default, broad face pointing up —
+  // a -90° X rotation (as the pre-existing code had) instead stands the
+  // card's 2.0-long edge upright, which is what caused the "cards sticking
+  // up through the table" glitch.
+  mesh.userData = { id: `${suit}-${value}`, baseMats };
+  return mesh;
+}
+
+function setFaceMaterial(mesh, faceUp) {
+  const b = mesh.userData.baseMats;
+  mesh.material = faceUp ? [b[0], b[1], b[3], b[2], b[4], b[5]] : [b[0], b[1], b[2], b[3], b[4], b[5]];
+}
+
+const cards = [];
+const meshById = {};
+function buildAllMeshes() {
+  for (let s = 0; s < 4; s++) {
+    for (let v = 0; v < 13; v++) {
+      const mesh = createCardMesh(s, v);
+      mesh.position.set(0, 5, 0);
+      scene.add(mesh);
+      cards.push(mesh);
+      meshById[mesh.userData.id] = mesh;
+    }
+  }
+}
+
+// ============================================================
+// STATE -> RENDER: the only place that decides where a card sits
+// ============================================================
+const POS = {
+  stock: { x: -6, z: -4 },
+  waste: { x: -4.2, z: -4 },
+  foundations: [{ x: 1.8, z: -4 }, { x: 3.6, z: -4 }, { x: 5.4, z: -4 }, { x: 7.2, z: -4 }],
+  tableau: [{ x: -6, z: -1 }, { x: -4, z: -1 }, { x: -2, z: -1 }, { x: 0, z: -1 }, { x: 2, z: -1 }, { x: 4, z: -1 }, { x: 6, z: -1 }],
+};
+
+function computeLayout(state) {
+  const layout = {};
+  state.stock.forEach((id, idx) => {
+    layout[id] = { x: POS.stock.x, y: 0.02 * idx, z: POS.stock.z, faceUp: false };
+  });
+  const wLen = state.waste.length;
+  state.waste.forEach((id, idx) => {
+    const fromTop = wLen - 1 - idx;
+    const fanPos = Math.min(fromTop, 2);
+    const offsetSteps = 2 - fanPos; // only the last 3 fan out; the top card sits frontmost
+    layout[id] = { x: POS.waste.x + offsetSteps * 0.3, y: 0.02 * idx, z: POS.waste.z, faceUp: true };
+  });
+  state.foundations.forEach((pile, f) => {
+    pile.forEach((id, idx) => {
+      layout[id] = { x: POS.foundations[f].x, y: 0.02 * idx, z: POS.foundations[f].z, faceUp: true };
+    });
+  });
+  state.tableau.forEach((pile, t) => {
+    pile.forEach((id, idx) => {
+      layout[id] = { x: POS.tableau[t].x, y: 0.02 * idx, z: POS.tableau[t].z + idx * 0.35, faceUp: state.faceUp[id] };
+    });
+  });
+  return layout;
+}
+
+function animateMeshTo(mesh, x, y, z, delay, faceUp, duration) {
+  duration = duration || 0.35;
+  const startPos = mesh.position.clone();
+  let elapsed = 0;
+  function step() {
+    elapsed += 1 / 60;
+    const t = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
+    mesh.position.set(
+      startPos.x + (x - startPos.x) * ease,
+      startPos.y + (y - startPos.y) * ease,
+      startPos.z + (z - startPos.z) * ease
+    );
+    if (t < 1) requestAnimationFrame(step);
+    else if (faceUp !== undefined) setFaceMaterial(mesh, faceUp);
+  }
+  setTimeout(() => requestAnimationFrame(step), delay * 1000);
+}
+
+const controller = Engine.createController();
+let lastLayout = {};
+
+function syncRender(opts) {
+  opts = opts || {};
+  const layout = computeLayout(controller.state);
+  let i = 0;
+  Object.keys(layout).forEach(id => {
+    const target = layout[id];
+    const prev = lastLayout[id];
+    const posChanged = !prev || prev.x !== target.x || prev.y !== target.y || prev.z !== target.z;
+    const faceChanged = !prev || prev.faceUp !== target.faceUp;
+    const mesh = meshById[id];
+    if (posChanged || opts.force) {
+      const delay = opts.stagger ? i * 0.025 : 0;
+      animateMeshTo(mesh, target.x, target.y, target.z, delay, target.faceUp, opts.duration);
+      i++;
+    } else if (faceChanged) {
+      setFaceMaterial(mesh, target.faceUp);
+    }
+  });
+  lastLayout = layout;
+  updateStatsUI();
+}
+
+function snapBack(seq) {
+  seq.forEach((id, i) => {
+    const t = lastLayout[id];
+    if (t) animateMeshTo(meshById[id], t.x, t.y, t.z, i * 0.02, t.faceUp, 0.3);
+  });
+}
+
+function updateStatsUI() {
+  document.getElementById('score').textContent = controller.state.score;
+  document.getElementById('moves').textContent = controller.state.moves;
+}
+
+let startTime, timerInterval;
+function resetTimer() {
+  startTime = Date.now();
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimerUI, 1000);
+  updateTimerUI();
+}
+function updateTimerUI() {
+  const el = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById('time').textContent = `${Math.floor(el / 60)}:${(el % 60).toString().padStart(2, '0')}`;
+}
+
+// ============================================================
+// GAME ACTIONS
+// ============================================================
+function startNewGame() {
+  controller.newGame();
+  cards.forEach(mesh => mesh.position.set(0, 5, 0)); // collapse to center for a reshuffle flourish
+  lastLayout = {};
+  syncRender({ stagger: true, force: true, duration: 0.6 });
+  resetTimer();
+}
+
+function restartGame() {
+  if (!controller.restart()) return;
+  lastLayout = {};
+  syncRender({ stagger: true, force: true, duration: 0.45 });
+  resetTimer();
+}
+
+function doDraw() {
+  const r = controller.draw();
+  if (r.ok) {
+    AudioSys.play('draw');
+    syncRender({ stagger: true, duration: 0.3 });
+  } else {
+    ui.toast('Stock is empty');
+  }
+}
+
+function afterMoveCheckWin() {
+  if (controller.isWon()) {
+    clearInterval(timerInterval);
+    AudioSys.play('win');
+    document.getElementById('final-score').textContent = controller.state.score;
+    document.getElementById('win-screen').classList.add('active');
+    ui.saveScore(controller.state.score);
+    explodeCards();
+  }
+}
+
+function explodeCards() {
+  cards.forEach((c, i) => {
+    setTimeout(() => {
+      c.userData.vy = 0.2 + Math.random() * 0.3;
+      c.userData.vx = (Math.random() - 0.5) * 0.2;
+      c.userData.vz = (Math.random() - 0.5) * 0.2;
+      c.userData.spin = (Math.random() - 0.5) * 0.2;
+    }, i * 30);
+  });
+}
+
+const RANK_NAMES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const SUIT_SYMS = ['♠', '♥', '♦', '♣'];
+function cardLabel(cardId) {
+  const parts = cardId.split('-');
+  const suit = +parts[0], value = +parts[1];
+  return `${RANK_NAMES[value]}${SUIT_SYMS[suit]}`;
+}
+
+function pulseCard(cardId) {
+  const mesh = meshById[cardId];
+  if (!mesh) return;
+  const baseY = mesh.position.y;
+  let t = 0;
+  function step() {
+    t += 1 / 60;
+    mesh.position.y = baseY + Math.sin(Math.min(t / 0.6, 1) * Math.PI) * 0.4;
+    if (t < 0.6) requestAnimationFrame(step);
+    else mesh.position.y = baseY;
+  }
+  requestAnimationFrame(step);
+}
+
+const game = {
+  newGame() { startNewGame(); },
+  restart() { restartGame(); },
+  undo() {
+    const r = controller.undo();
+    if (r.ok) { syncRender({ duration: 0.3 }); ui.toast('Move undone'); }
+    else ui.toast('Nothing to undo');
+  },
+  hint() {
+    const h = controller.findHint();
+    if (h.type === 'foundation') {
+      ui.toast(`Send ${cardLabel(h.card)} to a foundation`);
+      pulseCard(h.card);
+    } else if (h.type === 'tableau') {
+      ui.toast(`Move ${cardLabel(h.card)} to column ${h.toPile + 1}`);
+      pulseCard(h.card);
+    } else if (h.type === 'draw') {
+      ui.toast('Draw from the stock');
+    } else if (h.type === 'recycle') {
+      ui.toast('Tap the stock to recycle the waste pile');
+    } else {
+      ui.toast('No moves available — try Undo or start a new game');
+    }
+  },
+  autoComplete() {
+    const r = controller.autoFinish();
+    if (r.ok) {
+      syncRender({ stagger: true, duration: 0.3 });
+      afterMoveCheckWin();
+    } else {
+      ui.toast('No automatic moves available');
+    }
+  },
+};
+
+// ============================================================
+// INPUT: raycast picking with authoritative legal-sequence checks
+// ============================================================
+const raycaster = new THREE.Raycaster();
+const pointerNDC = new THREE.Vector2();
+let dragMeshes = null, dragSeq = null;
+const dragOffset = new THREE.Vector3();
+let pointerDownScreen = null;
+
+function toNDC(e) {
+  return { x: (e.clientX / innerWidth) * 2 - 1, y: -(e.clientY / innerHeight) * 2 + 1 };
+}
+
+function planePoint(e) {
+  const p = toNDC(e);
+  pointerNDC.set(p.x, p.y);
+  raycaster.setFromCamera(pointerNDC, camera);
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const point = new THREE.Vector3();
+  raycaster.ray.intersectPlane(plane, point);
+  return point;
+}
+
+function resolveDropTarget(point) {
+  for (let i = 0; i < 4; i++) {
+    const fp = POS.foundations[i];
+    if (Math.abs(point.x - fp.x) < 1 && Math.abs(point.z - fp.z) < 1.2) return { type: 'foundation', index: i };
+  }
+  for (let i = 0; i < 7; i++) {
+    const tp = POS.tableau[i];
+    if (Math.abs(point.x - tp.x) < 1 && point.z > tp.z - 0.5) return { type: 'tableau', index: i };
+  }
+  return null;
+}
+
+function onPointerDown(e) {
+  pointerDownScreen = { x: e.clientX, y: e.clientY };
+  const p = toNDC(e);
+  pointerNDC.set(p.x, p.y);
+  raycaster.setFromCamera(pointerNDC, camera);
+  const hits = raycaster.intersectObjects(cards);
+  if (!hits.length) return;
+
+  const mesh = hits[0].object;
+  const cardId = mesh.userData.id;
+  const loc = Engine.locate(controller.state, cardId);
+  if (!loc) return;
+
+  if (loc.location === 'stock') {
+    if (loc.index === loc.size - 1) doDraw();
+    return;
+  }
+
+  const seq = Engine.getMovableSequence(controller.state, cardId);
+  if (!seq) {
+    if (loc.location === 'tableau') ui.toast("That group isn't in order");
+    else ui.toast('Only the top card can be moved');
+    return;
+  }
+
+  dragSeq = seq;
+  dragMeshes = seq.map(id => meshById[id]);
+  const hitPoint = hits[0].point;
+  const headPos = meshById[seq[0]].position;
+  dragOffset.set(headPos.x - hitPoint.x, 0, headPos.z - hitPoint.z);
+}
+
+function onPointerMove(e) {
+  if (!dragMeshes) return;
+  const point = planePoint(e);
+  const baseX = point.x + dragOffset.x;
+  const baseZ = point.z + dragOffset.z;
+  dragMeshes.forEach((m, i) => {
+    m.position.x = baseX;
+    m.position.z = baseZ + i * 0.35;
+    m.position.y = 0.6 + i * 0.05;
+  });
+}
+
+function onPointerUp(e) {
+  if (!dragMeshes) return;
+  const seq = dragSeq;
+  const point = planePoint(e);
+  const dist = pointerDownScreen ? Math.hypot(e.clientX - pointerDownScreen.x, e.clientY - pointerDownScreen.y) : 999;
+  const isTap = dist < 6;
+
+  let result = null;
+  if (isTap && seq.length === 1) {
+    result = controller.toFoundation(seq[0]);
+  }
+  if (!result || !result.ok) {
+    const target = resolveDropTarget(point);
+    if (target && target.type === 'foundation' && seq.length === 1) {
+      result = controller.toFoundation(seq[0]);
+    } else if (target && target.type === 'tableau') {
+      result = controller.toTableau(seq[0], target.index);
+    } else {
+      result = { ok: false };
+    }
+  }
+
+  if (result.ok) {
+    AudioSys.play(result.to && result.to.location === 'foundation' ? 'foundation' : 'place');
+    if (result.revealed) setTimeout(() => AudioSys.play('flip'), 120);
+    syncRender();
+    afterMoveCheckWin();
+  } else {
+    AudioSys.play('error');
+    snapBack(seq);
+  }
+  dragMeshes = null; dragSeq = null; pointerDownScreen = null;
+}
+
+renderer.domElement.addEventListener('pointerdown', onPointerDown);
+renderer.domElement.addEventListener('pointermove', onPointerMove);
+renderer.domElement.addEventListener('pointerup', onPointerUp);
+
+addEventListener('resize', () => {
+  updateCameraForViewport();
+  renderer.setSize(innerWidth, innerHeight);
+});
+addEventListener('orientationchange', () => {
+  // Some mobile browsers report stale innerWidth/innerHeight for a beat
+  // right at the orientation-change event; a short delay avoids re-framing
+  // the camera against the pre-rotation dimensions.
+  setTimeout(() => {
+    updateCameraForViewport();
+    renderer.setSize(innerWidth, innerHeight);
+  }, 150);
+});
+
+// ============================================================
+// PROCEDURAL THEME (honest fallback — no AI claim)
+// ============================================================
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const toHex = v => Math.round(255 * v).toString(16).padStart(2, '0');
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
+
+function proceduralTheme(prompt) {
+  const p = prompt.toLowerCase();
+  const keywordHue = {
+    red: 0, blue: 210, green: 130, purple: 280, gold: 45, orange: 30, pink: 330, cyan: 185,
+    yellow: 50, sunset: 20, ocean: 200, forest: 140, fire: 15, ice: 195, neon: 100,
+    cyber: 190, blood: 355, royal: 260, midnight: 230, desert: 35, jungle: 100, silver: 210,
+  };
+  let hue = null;
+  for (const k in keywordHue) { if (p.includes(k)) { hue = keywordHue[k]; break; } }
+  if (hue === null) {
+    let hash = 0;
+    for (let i = 0; i < p.length; i++) hash = p.charCodeAt(i) + ((hash << 5) - hash);
+    hue = Math.abs(hash) % 360;
+  }
+  const backHue = (hue + 150) % 360;
+  return {
+    tableColor1: hslToHex(hue, 55, 20),
+    tableColor2: hslToHex(hue, 60, 38),
+    cardBackColor1: hslToHex(backHue, 65, 33),
+    cardBackColor2: hslToHex(backHue, 70, 52),
+    accentColor: hslToHex((hue + 30) % 360, 85, 60),
+    themeName: prompt,
+  };
+}
+
+function isValidThemeData(d) {
+  if (!d || typeof d !== 'object') return false;
+  const hex = /^#[0-9a-fA-F]{6}$/;
+  return hex.test(d.tableColor1) && hex.test(d.tableColor2) && hex.test(d.cardBackColor1) &&
+    hex.test(d.cardBackColor2) && hex.test(d.accentColor);
+}
+
+// ============================================================
+// "sample" runtime capability — real AI theme generation when the
+// viewer's Claude account allows it; an honest procedural mixer
+// (no AI claim) is used whenever it doesn't.
+// ============================================================
+let sampleFn = null;
+let aiAvailable = false;
+
+async function initSampleCapability() {
+  try {
+    if (window.claude && typeof window.claude.use === 'function') {
+      sampleFn = await window.claude.use('sample');
+    }
+  } catch (e) {
+    sampleFn = null;
+  }
+  aiAvailable = !!sampleFn;
+  if (aiAvailable) {
+    document.getElementById('ai-theme-label').textContent = '🤖 AI Theme Generator';
+    document.getElementById('ai-note').textContent = 'Asks Claude to design a matching table + card-back palette.';
+    document.getElementById('ai-generate-btn').textContent = '✨ Generate with AI';
+  }
+}
+
+// ============================================================
+// UI MANAGER
+// ============================================================
+const ui = {
+  show(modal) {
+    document.getElementById('modal-' + modal).classList.add('active');
+    if (modal === 'scores') this.renderScores();
+  },
+  hide() { document.querySelectorAll('.modal').forEach(m => m.classList.remove('active')); },
+  hideWin() { document.getElementById('win-screen').classList.remove('active'); },
+
+  toggle(setting) {
+    const tgl = document.getElementById('tgl-' + setting);
+    tgl.classList.toggle('on');
+    const on = tgl.classList.contains('on');
+    if (setting === 'sound') AudioSys.enabled = on;
+    if (setting === 'draw3') controller.setDrawCount(on ? 3 : 1);
+    localStorage.setItem('sol-3d-' + setting, on);
+  },
+
+  setTable(name) {
+    const colors = PRESET_TABLES[name] || PRESET_TABLES.casino;
+    setTableGradient(colors[0], colors[1]);
+    document.getElementById('table-theme-grid').querySelectorAll('.theme-card').forEach(el => {
+      el.classList.toggle('active', el.dataset.key === name);
+    });
+    localStorage.setItem('sol-3d-table', name);
+    localStorage.setItem('sol-3d-themeMode', 'preset');
+  },
+
+  setBack(name) {
+    const colors = PRESET_BACKS[name] || PRESET_BACKS.blue;
+    setCardBackColors(name, colors[0], colors[1]);
+    currentBack = name;
+    document.getElementById('back-theme-grid').querySelectorAll('.theme-card').forEach(el => {
+      el.classList.toggle('active', el.dataset.key === name);
+    });
+    localStorage.setItem('sol-3d-back', name);
+    localStorage.setItem('sol-3d-themeMode', 'preset');
+  },
+
+  applyGeneratedTheme(data, silent) {
+    setTableGradient(data.tableColor1, data.tableColor2);
+    setCardBackColors('custom', data.cardBackColor1, data.cardBackColor2);
+    currentBack = 'custom';
+    rimLight.color.set(data.accentColor);
+    document.querySelectorAll('.theme-card').forEach(el => el.classList.remove('active'));
+    localStorage.setItem('sol-3d-customTheme', JSON.stringify(data));
+    localStorage.setItem('sol-3d-themeMode', 'custom');
+    if (!silent) this.toast(`✨ "${data.themeName || 'Custom theme'}" applied!`);
+  },
+
+  async generateTheme() {
+    const promptEl = document.getElementById('ai-prompt');
+    const prompt = promptEl.value.trim();
+    if (!prompt) return;
+    const btn = document.getElementById('ai-generate-btn');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Thinking...';
+    try {
+      if (aiAvailable && sampleFn) {
+        const data = await sampleFn.json(
+          'You are a color palette designer for a 3D playing-card game table. Theme request: "' + prompt + '". ' +
+          'Reply with ONLY a JSON object with these exact keys: tableColor1, tableColor2, cardBackColor1, ' +
+          'cardBackColor2, accentColor (each a 6-digit hex color like "#1a3a2e"), and themeName (a short 2-4 word name). ' +
+          'Example: {"tableColor1":"#1a3a2e","tableColor2":"#2d5f4a","cardBackColor1":"#4a1a6b","cardBackColor2":"#7b2fa0","accentColor":"#ff6bcb","themeName":"Midnight Orchid"}',
+          { modelTier: 'quick' }
+        );
+        if (!isValidThemeData(data)) throw { code: 'invalid_json' };
+        this.applyGeneratedTheme(data);
+      } else {
+        this.applyGeneratedTheme(proceduralTheme(prompt));
+      }
+    } catch (err) {
+      const code = err && err.code;
+      const permanentlyUnavailable = ['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(code);
+      if (permanentlyUnavailable) {
+        aiAvailable = false;
+        document.getElementById('ai-theme-label').textContent = '🎨 Theme Generator';
+        document.getElementById('ai-generate-btn').textContent = '🎨 Generate Theme';
+      }
+      this.applyGeneratedTheme(proceduralTheme(prompt), true);
+      if (code === 'not_granted') this.toast('AI access declined — used the built-in mixer instead');
+      else if (code) this.toast('AI theme failed — applied a custom theme instead');
+      else this.toast('🎨 Custom theme applied!');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  },
+
+  renderScores() {
+    const scores = JSON.parse(localStorage.getItem('sol-3d-scores') || '[]');
+    const list = document.getElementById('scores-list');
+    list.innerHTML = scores.length === 0
+      ? '<p style="color:rgba(255,255,255,0.5); text-align:center; padding:20px;">No victories yet. Win a game!</p>'
+      : '';
+    scores.sort((a, b) => b.score - a.score).slice(0, 10).forEach((s, i) => {
+      const div = document.createElement('div');
+      div.className = 'score-entry';
+      div.innerHTML = `
+        <span class="score-rank">#${i + 1}</span>
+        <div><div style="font-weight:700">${s.score} pts</div>
+        <div style="font-size:11px; opacity:0.6">${s.date}</div></div>
+        <span style="opacity:0.5">${s.time}s</span>
+      `;
+      list.appendChild(div);
+    });
+  },
+
+  saveScore(sc) {
+    const scores = JSON.parse(localStorage.getItem('sol-3d-scores') || '[]');
+    scores.push({ score: sc, date: new Date().toLocaleDateString(), time: Math.floor((Date.now() - startTime) / 1000) });
+    localStorage.setItem('sol-3d-scores', JSON.stringify(scores));
+  },
+
+  clearScores() {
+    localStorage.removeItem('sol-3d-scores');
+    this.renderScores();
+  },
+
+  toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(() => t.classList.remove('show'), 2500);
+  },
+
+  applyStoredPreferences() {
+    const sound = localStorage.getItem('sol-3d-sound');
+    if (sound !== null) AudioSys.enabled = sound === 'true';
+    document.getElementById('tgl-sound').classList.toggle('on', AudioSys.enabled);
+    document.getElementById('tgl-draw3').classList.toggle('on', controller.state.drawCount === 3);
+
+    const mode = localStorage.getItem('sol-3d-themeMode');
+    if (mode === 'custom') {
+      const raw = localStorage.getItem('sol-3d-customTheme');
+      let applied = false;
+      if (raw) {
+        try { this.applyGeneratedTheme(JSON.parse(raw), true); applied = true; } catch (e) { /* fall through */ }
+      }
+      if (!applied) this.setTable('casino');
+    } else {
+      this.setTable(localStorage.getItem('sol-3d-table') || 'casino');
+      this.setBack(localStorage.getItem('sol-3d-back') || 'blue');
+    }
+  },
+};
+
+// ============================================================
+// ANIMATION LOOP
+// ============================================================
+function animate() {
+  requestAnimationFrame(animate);
+  cards.forEach(c => {
+    if (c.userData.vy) {
+      c.position.y += c.userData.vy;
+      c.position.x += c.userData.vx;
+      c.position.z += c.userData.vz;
+      c.rotation.z += c.userData.spin;
+      c.userData.vy -= 0.01;
+    }
+  });
+  const t = Date.now() * 0.0005;
+  camera.position.x = Math.sin(t) * 0.5;
+  camera.position.y = 12 + Math.sin(t * 1.3) * 0.3;
+  camera.lookAt(0, 0, 0);
+  renderer.render(scene, camera);
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+function boot() {
+  precomputeTextures();
+  buildAllMeshes();
+
+  const savedDraw3 = localStorage.getItem('sol-3d-draw3') === 'true';
+  controller.newGame(savedDraw3 ? 3 : 1);
+  lastLayout = {};
+  syncRender({ stagger: true, force: true, duration: 0.6 });
+  resetTimer();
+
+  ui.applyStoredPreferences();
+  initSampleCapability();
+}
+
+setTimeout(() => {
+  try {
+    boot();
+    document.getElementById('loading').classList.add('hide');
+    window.__solitaireBootOK = true;
+    animate();
+  } catch (err) {
+    console.error('Solitaire boot failed:', err);
+    showBootError(err && err.message ? err.message : String(err));
+  }
+}, 300);
+
+} catch (err) {
+  console.error('Solitaire setup failed:', err);
+  showBootError(err && err.message ? err.message : String(err));
+}
+} // end mainInit
+</script>
+</body>
+</html>
