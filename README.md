@@ -5,7 +5,7 @@ A mobile-friendly 3D Solitaire experience built as a lightweight web game, with 
 ## 🎮 Play Now
 
 Live Demo:  
-[Solitaire 3D](YOUR_VERCEL_URL_HERE)
+[Solitaire 3D](https://solitaire-3d-sepia.vercel.app/)
 
 ## ✨ Features
 
