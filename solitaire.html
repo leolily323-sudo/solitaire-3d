@@ -156,13 +156,19 @@ canvas { display: block; }
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* The action bar must remain reachable on a phone: four compact,
+   single-line buttons, pinned above the gesture area. */
+#controls { flex-wrap: nowrap; padding: 0 max(8px, env(safe-area-inset-left)) max(4px, env(safe-area-inset-bottom)); gap: 6px; }
+#controls .ctrl-btn { flex: 1 1 0; min-width: 0; white-space: nowrap; padding: 10px 6px; font-size: clamp(9px, 2.8vw, 13px); }
+
 @media (max-width: 480px) {
   #hud { padding-left: 6px; padding-right: 6px; }
   .hud-group { gap: 4px; }
   .hud-stat { min-width: 48px; padding: 6px 7px; }
   .hud-value { font-size: 16px; }
   .icon-btn { width: 38px; height: 38px; font-size: 17px; border-radius: 10px; }
-  .ctrl-btn { padding: 10px 14px; font-size: 11px; }
+  #controls { bottom: max(8px, env(safe-area-inset-bottom)); gap: 4px; }
+  #controls .ctrl-btn { padding: 9px 3px; font-size: clamp(8px, 2.7vw, 11px); letter-spacing: 0; }
 }
 </style>
 </head>
@@ -685,7 +691,7 @@ const CAMERA_BASE = { y: 12, z: 14, fov: 45 }; // the original, landscape-tuned 
 const CAMERA_BASE_DIST = Math.hypot(CAMERA_BASE.y, CAMERA_BASE.z);
 const TABLE_HALF_WIDTH = 8.5; // covers stock (-6) to the last foundation (7.2) with margin
 const CAMERA_VIEWS = ['seat', 'table', 'close'];
-const CAMERA_LABELS = { seat: 'Seat', table: 'Table', close: 'Close' };
+const CAMERA_LABELS = { seat: 'Play', table: 'Table', close: 'Focus' };
 let cameraView = localStorage.getItem('sol-3d-camera') || 'seat';
 if (!CAMERA_VIEWS.includes(cameraView)) cameraView = 'seat';
 const cameraGoal = {
@@ -712,19 +718,19 @@ function updateCameraForViewport(immediate = false) {
     cameraGoal.position.set(0, CAMERA_BASE.y * scale, CAMERA_BASE.z * scale);
     cameraGoal.target.set(0, 0, 0);
   } else if (cameraView === 'close') {
-    // Deliberately intimate, GoPro-height view. It is useful for inspecting
-    // cards now and reserved as a future bonus/mini-game camera.
+    // Raised over-the-shoulder play view: closer and steeper than the table
+    // view, but never directly overhead, so ranks/suits stay readable.
     const portrait = aspect < .78;
-    cameraGoal.fov = portrait ? 58 : 49;
-    cameraGoal.position.set(0, portrait ? 5.7 : 3.6, portrait ? 10.8 : 7.3);
-    cameraGoal.target.set(0, .15, -1.6);
+    cameraGoal.fov = portrait ? 37 : 34;
+    cameraGoal.position.set(0, portrait ? 11.8 : 10.2, portrait ? 10.6 : 9.0);
+    cameraGoal.target.set(0, 0, portrait ? -0.15 : -0.45);
   } else {
-    // A player's seated eye line: close enough to read the cards while the
-    // far side of the room remains visible above the table.
+    // Player view: an angled overhead camera that keeps the whole game
+    // usable while making card faces much larger than the old distant seat.
     const portrait = aspect < .78;
-    cameraGoal.fov = portrait ? 55 : 47;
-    cameraGoal.position.set(0, portrait ? 7.8 : 5.5, portrait ? 15.6 : 11.6);
-    cameraGoal.target.set(0, -.05, -1.15);
+    cameraGoal.fov = portrait ? 45 : 41;
+    cameraGoal.position.set(0, portrait ? 12.8 : 11.4, portrait ? 16.2 : 13.0);
+    cameraGoal.target.set(0, 0, portrait ? -0.55 : -0.75);
   }
   if (immediate) {
     camera.position.copy(cameraGoal.position);
