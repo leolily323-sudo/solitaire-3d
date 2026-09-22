@@ -691,7 +691,7 @@ const CAMERA_BASE = { y: 12, z: 14, fov: 45 }; // the original, landscape-tuned 
 const CAMERA_BASE_DIST = Math.hypot(CAMERA_BASE.y, CAMERA_BASE.z);
 const TABLE_HALF_WIDTH = 8.5; // covers stock (-6) to the last foundation (7.2) with margin
 const CAMERA_VIEWS = ['seat', 'table', 'close'];
-const CAMERA_LABELS = { seat: 'Play', table: 'Table', close: 'Focus' };
+const CAMERA_LABELS = { seat: 'Seat', table: 'Table', close: 'Close' };
 let cameraView = localStorage.getItem('sol-3d-camera') || 'seat';
 if (!CAMERA_VIEWS.includes(cameraView)) cameraView = 'seat';
 const cameraGoal = {
@@ -718,19 +718,15 @@ function updateCameraForViewport(immediate = false) {
     cameraGoal.position.set(0, CAMERA_BASE.y * scale, CAMERA_BASE.z * scale);
     cameraGoal.target.set(0, 0, 0);
   } else if (cameraView === 'close') {
-    // Raised over-the-shoulder play view: closer and steeper than the table
-    // view, but never directly overhead, so ranks/suits stay readable.
     const portrait = aspect < .78;
-    cameraGoal.fov = portrait ? 37 : 34;
-    cameraGoal.position.set(0, portrait ? 11.8 : 10.2, portrait ? 10.6 : 9.0);
-    cameraGoal.target.set(0, 0, portrait ? -0.15 : -0.45);
+    cameraGoal.fov = portrait ? 58 : 49;
+    cameraGoal.position.set(0, portrait ? 5.7 : 3.6, portrait ? 10.8 : 7.3);
+    cameraGoal.target.set(0, .15, -1.6);
   } else {
-    // Player view: an angled overhead camera that keeps the whole game
-    // usable while making card faces much larger than the old distant seat.
     const portrait = aspect < .78;
-    cameraGoal.fov = portrait ? 45 : 41;
-    cameraGoal.position.set(0, portrait ? 12.8 : 11.4, portrait ? 16.2 : 13.0);
-    cameraGoal.target.set(0, 0, portrait ? -0.55 : -0.75);
+    cameraGoal.fov = portrait ? 55 : 47;
+    cameraGoal.position.set(0, portrait ? 7.8 : 5.5, portrait ? 15.6 : 11.6);
+    cameraGoal.target.set(0, -.05, -1.15);
   }
   if (immediate) {
     camera.position.copy(cameraGoal.position);
