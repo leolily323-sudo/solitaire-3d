@@ -46,6 +46,13 @@ canvas { display: block; }
 }
 .icon-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
 .icon-btn:active { transform: scale(0.95); }
+.icon-btn.camera-btn { position: relative; }
+.icon-btn.camera-btn::after {
+  content: attr(data-view); position: absolute; left: 50%; top: calc(100% + 4px);
+  transform: translateX(-50%); padding: 2px 6px; border-radius: 8px;
+  background: rgba(0,0,0,.72); color: #fff; font-size: 8px; line-height: 1;
+  letter-spacing: .7px; text-transform: uppercase; white-space: nowrap;
+}
 
 #controls {
   position: absolute; bottom: max(16px, env(safe-area-inset-bottom)); left: 0; right: 0;
@@ -150,8 +157,11 @@ canvas { display: block; }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 @media (max-width: 480px) {
-  .hud-stat { min-width: 60px; padding: 6px 10px; }
+  #hud { padding-left: 6px; padding-right: 6px; }
+  .hud-group { gap: 4px; }
+  .hud-stat { min-width: 48px; padding: 6px 7px; }
   .hud-value { font-size: 16px; }
+  .icon-btn { width: 38px; height: 38px; font-size: 17px; border-radius: 10px; }
   .ctrl-btn { padding: 10px 14px; font-size: 11px; }
 }
 </style>
@@ -172,6 +182,7 @@ canvas { display: block; }
       <div class="hud-stat"><div class="hud-value" id="time">0:00</div><div class="hud-label">Time</div></div>
     </div>
     <div class="hud-group">
+      <button class="icon-btn camera-btn" id="camera-view-btn" data-view="Seat" onclick="cycleCameraView()" title="Change camera view" aria-label="Change camera view">🎥</button>
       <button class="icon-btn" onclick="game.undo()" title="Undo">↩️</button>
       <button class="icon-btn" onclick="game.hint()" title="Hint">💡</button>
       <button class="icon-btn" onclick="ui.show('settings')" title="Settings">⚙️</button>
@@ -673,6 +684,14 @@ const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 10
 const CAMERA_BASE = { y: 12, z: 14, fov: 45 }; // the original, landscape-tuned framing
 const CAMERA_BASE_DIST = Math.hypot(CAMERA_BASE.y, CAMERA_BASE.z);
 const TABLE_HALF_WIDTH = 8.5; // covers stock (-6) to the last foundation (7.2) with margin
+const CAMERA_VIEWS = ['seat', 'table', 'close'];
+const CAMERA_LABELS = { seat: 'Seat', table: 'Table', close: 'Close' };
+let cameraView = localStorage.getItem('sol-3d-camera') || 'seat';
+if (!CAMERA_VIEWS.includes(cameraView)) cameraView = 'seat';
+const cameraGoal = {
+  position: new THREE.Vector3(), target: new THREE.Vector3(), fov: 45
+};
+const cameraLook = new THREE.Vector3();
 
 // A perspective camera's horizontal field of view shrinks as the viewport
 // gets narrower (portrait phones especially) even though its vertical FOV
@@ -680,22 +699,51 @@ const TABLE_HALF_WIDTH = 8.5; // covers stock (-6) to the last foundation (7.2) 
 // Pulling the camera back (never in past the original landscape distance)
 // keeps the same fixed vertical FOV — no fisheye distortion — while still
 // bringing the table's full width back into view.
-function updateCameraForViewport() {
+function updateCameraForViewport(immediate = false) {
   const aspect = innerWidth / innerHeight;
   camera.aspect = aspect;
-  camera.fov = CAMERA_BASE.fov;
-
-  const halfV = THREE.MathUtils.degToRad(CAMERA_BASE.fov / 2);
-  const halfH = Math.atan(Math.tan(halfV) * aspect);
-  const neededDist = TABLE_HALF_WIDTH / Math.tan(halfH);
-  const dist = Math.max(CAMERA_BASE_DIST, neededDist);
-  const scale = dist / CAMERA_BASE_DIST;
-
-  camera.position.set(0, CAMERA_BASE.y * scale, CAMERA_BASE.z * scale);
-  camera.lookAt(0, 0, 0);
+  if (cameraView === 'table') {
+    cameraGoal.fov = CAMERA_BASE.fov;
+    const halfV = THREE.MathUtils.degToRad(CAMERA_BASE.fov / 2);
+    const halfH = Math.atan(Math.tan(halfV) * aspect);
+    const neededDist = TABLE_HALF_WIDTH / Math.tan(halfH);
+    const dist = Math.max(CAMERA_BASE_DIST, neededDist);
+    const scale = dist / CAMERA_BASE_DIST;
+    cameraGoal.position.set(0, CAMERA_BASE.y * scale, CAMERA_BASE.z * scale);
+    cameraGoal.target.set(0, 0, 0);
+  } else if (cameraView === 'close') {
+    // Deliberately intimate, GoPro-height view. It is useful for inspecting
+    // cards now and reserved as a future bonus/mini-game camera.
+    const portrait = aspect < .78;
+    cameraGoal.fov = portrait ? 58 : 49;
+    cameraGoal.position.set(0, portrait ? 5.7 : 3.6, portrait ? 10.8 : 7.3);
+    cameraGoal.target.set(0, .15, -1.6);
+  } else {
+    // A player's seated eye line: close enough to read the cards while the
+    // far side of the room remains visible above the table.
+    const portrait = aspect < .78;
+    cameraGoal.fov = portrait ? 55 : 47;
+    cameraGoal.position.set(0, portrait ? 7.8 : 5.5, portrait ? 15.6 : 11.6);
+    cameraGoal.target.set(0, -.05, -1.15);
+  }
+  if (immediate) {
+    camera.position.copy(cameraGoal.position);
+    cameraLook.copy(cameraGoal.target);
+    camera.fov = cameraGoal.fov;
+    camera.lookAt(cameraLook);
+  }
   camera.updateProjectionMatrix();
 }
-updateCameraForViewport();
+updateCameraForViewport(true);
+
+function cycleCameraView() {
+  cameraView = CAMERA_VIEWS[(CAMERA_VIEWS.indexOf(cameraView) + 1) % CAMERA_VIEWS.length];
+  localStorage.setItem('sol-3d-camera', cameraView);
+  updateCameraForViewport();
+  const button = document.getElementById('camera-view-btn');
+  if (button) button.dataset.view = CAMERA_LABELS[cameraView];
+  if (window.ui && ui.toast) ui.toast(CAMERA_LABELS[cameraView] + ' camera');
+}
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(innerWidth, innerHeight);
@@ -740,6 +788,73 @@ feltGrid.position.y = 0.01;
 feltGrid.material.opacity = 0.1;
 feltGrid.material.transparent = true;
 scene.add(feltGrid);
+
+// ============================================================
+// CINEMATIC CARD-ROOM ENVIRONMENT
+// Lightweight geometry keeps this mobile-friendly while giving the seated
+// cameras a real place to exist: wood floor, paneled walls, night windows,
+// warm lamps, table apron/legs and chairs.
+// ============================================================
+const room = new THREE.Group();
+scene.add(room);
+
+function roomBox(w, h, d, color, x, y, z, roughness = .85, metalness = 0) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshStandardMaterial({ color, roughness, metalness })
+  );
+  mesh.position.set(x, y, z);
+  mesh.receiveShadow = true;
+  mesh.castShadow = true;
+  room.add(mesh);
+  return mesh;
+}
+
+roomBox(34, .18, 34, 0x2b1a12, 0, -4.72, 0, .72);      // floor
+roomBox(34, 13, .35, 0x241912, 0, 1.7, -13, .95);      // back wall
+roomBox(.35, 13, 34, 0x1d1410, -17, 1.7, 0, .95);      // side walls
+roomBox(.35, 13, 34, 0x1d1410, 17, 1.7, 0, .95);
+roomBox(34, .3, 34, 0x120d0b, 0, 8.25, 0, .95);        // ceiling
+
+// Mahogany wainscot and trim pull the room into the warm, premium look.
+roomBox(33.7, 3.2, .22, 0x3b2116, 0, -3.05, -12.75, .65);
+for (let x = -15; x <= 15; x += 3) roomBox(.12, 3, .26, 0x6b3d24, x, -3.05, -12.55, .55);
+roomBox(33.7, .18, .3, 0x8a5730, 0, -1.42, -12.5, .5);
+
+function addNightWindow(x) {
+  roomBox(5.3, 5.1, .18, 0x050b18, x, 6.2, -12.55, .35, .15);
+  roomBox(5.7, .22, .3, 0x7b4a27, x, 3.58, -12.35, .5);
+  roomBox(.2, 5.2, .28, 0x6b3d24, x, 6.2, -12.3, .55);
+  roomBox(5.4, .18, .28, 0x6b3d24, x, 6.2, -12.3, .55);
+  for (let i = 0; i < 9; i++) {
+    const glow = roomBox(.055 + (i % 3) * .02, .055, .035, i % 2 ? 0xffc35a : 0x65a7ff,
+      x - 2.2 + ((i * 1.17) % 4.4), 4.05 + ((i * .83) % 3.8), -12.42, .2, .3);
+    glow.material.emissive = new THREE.Color(glow.material.color);
+    glow.material.emissiveIntensity = 1.8;
+  }
+}
+addNightWindow(-7.2);
+addNightWindow(0);
+addNightWindow(7.2);
+
+// Substantial table base and legs become visible in the low camera angles.
+roomBox(15.4, .85, 11.4, 0x311a10, 0, -.72, 0, .55);
+[[-6.8,-4.7],[6.8,-4.7],[-6.8,4.7],[6.8,4.7]].forEach(([x,z]) => {
+  roomBox(.72, 4.2, .72, 0x3b2115, x, -2.5, z, .55);
+  roomBox(1.05, .22, 1.05, 0x704222, x, -4.5, z, .5);
+});
+
+function addLamp(x) {
+  const shade = new THREE.Mesh(
+    new THREE.CylinderGeometry(.45, .8, 1.15, 20, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0xd9a45b, emissive: 0xff9d3d, emissiveIntensity: .4, roughness: .65, side: THREE.DoubleSide })
+  );
+  shade.position.set(x, 6.7, -11.8); room.add(shade);
+  roomBox(.1, 3.4, .1, 0xb88942, x, 4.55, -11.8, .3, .65);
+  const light = new THREE.PointLight(0xffb45c, 1.0, 10, 2);
+  light.position.set(x, 6.45, -10.8); room.add(light);
+}
+addLamp(-11.5); addLamp(11.5);
 
 // Permanent pile markers: stock, waste, and all four foundations remain visible
 // even when a pile is empty, so the board always reads as Klondike.
@@ -1523,6 +1638,12 @@ Object.assign(window, { game, ui });
 // ============================================================
 function animate() {
   requestAnimationFrame(animate);
+  // Smoothly travel between the three camera rigs instead of teleporting.
+  camera.position.lerp(cameraGoal.position, .075);
+  cameraLook.lerp(cameraGoal.target, .075);
+  camera.fov += (cameraGoal.fov - camera.fov) * .075;
+  camera.lookAt(cameraLook);
+  camera.updateProjectionMatrix();
   cards.forEach(c => {
     if (c.userData.vy) {
       c.position.y += c.userData.vy;
@@ -1552,6 +1673,8 @@ function boot() {
   resetTimer();
 
   ui.applyStoredPreferences();
+  const cameraButton = document.getElementById('camera-view-btn');
+  if (cameraButton) cameraButton.dataset.view = CAMERA_LABELS[cameraView];
   initSampleCapability();
 }
 
