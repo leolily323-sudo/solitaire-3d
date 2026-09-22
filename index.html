@@ -1,15 +1,27 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Solitaire 3D — Premium Edition</title>
-  <style>
-    html, body { margin: 0; height: 100%; background: #24170f; overflow: hidden; font-family: "Segoe UI", sans-serif; }
-    iframe { width: 100vw; height: 100vh; border: 0; display: block; background: #24170f; }
-  </style>
-</head>
-<body>
-  <iframe id="solitaire-frame" src="./solitaire.html" title="Solitaire 3D — Premium Edition"></iframe>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+    <meta name="theme-color" content="#100b09" />
+    <title>Solitaire 3D — Next Generation</title>
+  </head>
+  <body>
+    <canvas id="game" aria-label="Solitaire 3D game table"></canvas>
+    <div id="hud">
+      <section class="stats" aria-label="Game statistics">
+        <div><strong id="score">0</strong><span>Score</span></div>
+        <div><strong id="moves">0</strong><span>Moves</span></div>
+        <div><strong id="time">0:00</strong><span>Time</span></div>
+      </section>
+      <section class="actions">
+        <button id="camera" aria-label="Change camera">🎥<small>Seat</small></button>
+        <button id="undo" aria-label="Undo">↩</button>
+        <button id="hint" aria-label="Hint">💡</button>
+        <button id="settings" aria-label="Settings">⚙</button>
+      </section>
+    </div>
+    <div id="status">Next-generation scene prototype</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
