@@ -5,30 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Solitaire 3D — Premium Edition</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #0a0a1a; overflow: hidden; font-family: "Segoe UI", sans-serif; }
-    iframe { width: 100vw; height: 100vh; border: 0; display: block; background: #0a0a1a; }
+    html, body { margin: 0; height: 100%; background: #24170f; overflow: hidden; font-family: "Segoe UI", sans-serif; }
+    iframe { width: 100vw; height: 100vh; border: 0; display: block; background: #24170f; }
   </style>
 </head>
 <body>
   <iframe id="solitaire-frame" src="./solitaire.html" title="Solitaire 3D — Premium Edition"></iframe>
-  <script>
-    // Keep the existing single-file game intact while loading the focused QA pass
-    // in the same-origin game document.
-    (function () {
-      var frame = document.getElementById('solitaire-frame');
-      function inject() {
-        try {
-          var doc = frame.contentDocument;
-          if (!doc || doc.getElementById('solitaire-qa-fixes')) return;
-          var script = doc.createElement('script');
-          script.id = 'solitaire-qa-fixes';
-          script.src = './qa-fixes.js';
-          doc.head.appendChild(script);
-        } catch (e) { setTimeout(inject, 250); }
-      }
-      frame.addEventListener('load', inject);
-      setTimeout(inject, 350);
-    }());
-  </script>
 </body>
 </html>
